@@ -5,13 +5,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ASSISTANT_ID = os.getenv('OPENAI_ASSISTANT_ID')
-if not ASSISTANT_ID:
-    raise ValueError("OPENAI_ASSISTANT_ID environment variable is not set")
+FloydBasicResponseAssistantId = os.getenv('OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID')
+if not FloydBasicResponseAssistantId:
+    raise ValueError("OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID environment variable is not set")
 
 def test_floyd():
     # Initialize Floyd
-    floyd = Floyd(ASSISTANT_ID)
+    floyd = Floyd(FloydBasicResponseAssistantId)
     
     # Test a single message
     print("\nTesting single message:")
