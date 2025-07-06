@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any
+import time
 
 from openai import OpenAI
 
@@ -58,8 +59,16 @@ class Floyd:
                 thread_id=thread_id,
                 run_id=run.id
             )
-            if run.status == "completed":
+            if run.status in {
+                "completed",
+                "failed",
+                "cancelled",
+                "expired",
+                "requires_action",
+            }:
                 break
+            # Avoid hammering the API in a tight loop
+            time.sleep(1)
 
         # Get messages
         messages = self.client.beta.threads.messages.list(thread_id=thread_id)
