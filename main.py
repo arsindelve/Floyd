@@ -1,10 +1,20 @@
 import os
 from floyd import Floyd
+from router import Router
 import json
 
 # Map assistant types to their OpenAI assistant IDs
 ASSISTANT_MAP = {
-    "basic_response": os.environ.get("OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID")
+    "basic_response": os.environ.get("OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID"),
+    "router": os.environ.get("OPENAI_ROUTER_ASSISTANT_ID"),
+    "DoSomething": os.environ.get("OPENAI_DOSOMETHING_ASSISTANT_ID"),
+    "PickUp": os.environ.get("OPENAI_PICKUP_ASSISTANT_ID"),
+    "GoSomewhere": os.environ.get("OPENAI_GOSOMEWHERE_ASSISTANT_ID"),
+    "AskQuestion": os.environ.get("OPENAI_ASKQUESTION_ASSISTANT_ID"),
+    "GiveInstruction": os.environ.get("OPENAI_GIVEINSTRUCTION_ASSISTANT_ID"),
+    "SocialEmotional": os.environ.get("OPENAI_SOCIALEMOTIONAL_ASSISTANT_ID"),
+    "MetaCommand": os.environ.get("OPENAI_METACOMMAND_ASSISTANT_ID"),
+    "Nonsense": os.environ.get("OPENAI_NONSENSE_ASSISTANT_ID")
 }
 
 def lambda_handler(event, context):
@@ -31,10 +41,17 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'Unknown assistant type'})
             }
 
-        # Initialize Floyd with the matching assistant ID
-        floyd = Floyd(assistant_id)
+        if assistant_type == 'router':
+            router = Router(assistant_id)
+            route = router.route(prompt)
+            assistant_id = ASSISTANT_MAP.get(route)
+            if not assistant_id:
+                return {
+                    'statusCode': 400,
+                    'body': json.dumps({'error': 'Unknown route'})
+                }
 
-        # Use the prompt from the request
+        floyd = Floyd(assistant_id)
         response = floyd.chat(prompt)
         result1 = {"single_message": response['content']}
 
