@@ -2,24 +2,40 @@ import os
 from floyd import Floyd
 import json
 
-FloydBasicResponseAssistantId = os.environ['OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID']
+# Map assistant types to their OpenAI assistant IDs
+ASSISTANT_MAP = {
+    "basic_response": os.environ.get("OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID")
+}
 
 def lambda_handler(event, context):
     try:
-        # Parse the incoming request body for the question
+        # Parse the incoming request body for the prompt and assistant type
         body = event.get('body')
         if body:
             data = json.loads(body)
         else:
             data = event
 
-        question = data.get('question', 'What is your question?')
+        assistant_type = data.get('assistant')
+        prompt = data.get('prompt')
+        if not prompt:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Prompt is required'})
+            }
 
-        # Initialize Floyd
-        floyd = Floyd(FloydBasicResponseAssistantId)
+        assistant_id = ASSISTANT_MAP.get(assistant_type)
+        if not assistant_id:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Unknown assistant type'})
+            }
 
-        # Use the question from the request
-        response = floyd.chat(question)
+        # Initialize Floyd with the matching assistant ID
+        floyd = Floyd(assistant_id)
+
+        # Use the prompt from the request
+        response = floyd.chat(prompt)
         result1 = {"single_message": response['content']}
 
         return {

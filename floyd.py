@@ -83,14 +83,14 @@ class Floyd:
 
         return {"role": "assistant", "content": "No response generated"}
 
-    def chat(self, message: str, thread_id: Optional[str] = None,
+    def chat(self, prompt: str, thread_id: Optional[str] = None,
              instructions: Optional[str] = None) -> Dict[str, Any]:
         """
         Send a message and get a response in a single call.
         Creates a new thread if thread_id is not provided.
 
         Args:
-            message: The message to send
+            prompt: The prompt to send
             thread_id: Optional thread ID to continue an existing conversation
             instructions: Optional override instructions for this run
 
@@ -100,5 +100,5 @@ class Floyd:
         if thread_id is None:
             thread_id = self.create_thread()
 
-        self.add_message(thread_id, message)
+        self.add_message(thread_id, prompt)
         return self.run_assistant(thread_id, instructions)
