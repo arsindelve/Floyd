@@ -2,6 +2,8 @@ import os
 from floyd import Floyd
 import json
 
+FloydBasicResponseAssistantId = os.environ['OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID']
+
 def lambda_handler(event, context):
     try:
         # Parse the incoming request body for the question
@@ -14,8 +16,7 @@ def lambda_handler(event, context):
         question = data.get('question', 'What is your question?')
 
         # Initialize Floyd
-        assistant_id = os.environ['OPENAI_ASSISTANT_ID']
-        floyd = Floyd(assistant_id)
+        floyd = Floyd(FloydBasicResponseAssistantId)
 
         # Use the question from the request
         response = floyd.chat(question)
