@@ -21,16 +21,20 @@ ASSISTANT_MAP = {
 
 def lambda_handler(event, context):
     try:
+        print("lambda_handler invoked with event:", event)
         # Parse the incoming request body for the prompt and assistant type
         body = event.get('body')
         if body:
+            print("Found body in event")
             data = json.loads(body)
         else:
+            print("No body field in event; using event directly")
             data = event
 
         assistant_type = data.get('assistant')
         prompt = data.get('prompt')
         if not prompt:
+            print("Prompt missing from request")
             return {
                 'statusCode': 400,
                 'body': json.dumps({'error': 'Prompt is required'})
@@ -38,31 +42,40 @@ def lambda_handler(event, context):
 
         assistant_id = ASSISTANT_MAP.get(assistant_type)
         if not assistant_id:
+            print(f"Unknown assistant type: {assistant_type}")
             return {
                 'statusCode': 400,
                 'body': json.dumps({'error': 'Unknown assistant type'})
             }
 
         if assistant_type == 'router':
+            print("Processing router assistant type")
             rewrite_id = ASSISTANT_MAP.get('RewriteSecondPerson')
+            print(f"Using RewriteSecondPerson assistant id: {rewrite_id}")
             rewriter = RewriteSecondPerson(rewrite_id)
             new_prompt = rewriter.rewrite(prompt)
+            print("Rewritten prompt:", new_prompt)
             if new_prompt.strip().lower() == 'no':
+                print("Rewrite returned 'no'; short circuiting")
                 return {
                     'statusCode': 200,
                     'body': json.dumps({'results': {'single_message': 'no'}})
                 }
             prompt = new_prompt
             router = Router(assistant_id)
+            print(f"Routing with assistant id: {assistant_id}")
             route = router.route(prompt)
+            print("Router selected route:", route)
             assistant_id = ASSISTANT_MAP.get(route)
             if not assistant_id:
+                print(f"Unknown route returned: {route}")
                 return {
                     'statusCode': 400,
                     'body': json.dumps({'error': 'Unknown route'})
                 }
 
         floyd = Floyd(assistant_id)
+        print(f"Chatting with assistant id: {assistant_id}")
         response = floyd.chat(prompt)
         result1 = {"single_message": response['content']}
 
