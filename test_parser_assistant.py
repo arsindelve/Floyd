@@ -1,5 +1,11 @@
 import os
-import openai
+import pytest
+
+try:
+    import openai
+except Exception:
+    pytest.skip("openai package not installed", allow_module_level=True)
+
 from dotenv import load_dotenv
 
 # Load your OpenAI API key and Assistant ID from .env
@@ -8,7 +14,10 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 ASSISTANT_ID = os.getenv("OPENAI_REWRITESECONDPERSON_ASSISTANT_ID")
 
 if not ASSISTANT_ID:
-    raise ValueError("Missing Assistant ID. Please set OPENAI_REWRITESECONDPERSON_ASSISTANT_ID in your .env file.")
+    pytest.skip(
+        "Missing Assistant ID. Skipping manual assistant tests.",
+        allow_module_level=True,
+    )
 
 # Define test cases: prompt -> expected output
 TEST_CASES = [

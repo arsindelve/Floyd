@@ -2,20 +2,17 @@ import importlib
 import json
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock
 
 
-def load_rewriter(monkeypatch, rew_id='aid'):
+def load_rewriter(monkeypatch):
     client = MagicMock()
     openai_module = ModuleType('openai')
     openai_module.OpenAI = MagicMock(return_value=client)
     monkeypatch.setitem(sys.modules, 'openai', openai_module)
-    monkeypatch.setenv('OPENAI_REWRITESECONDPERSON_ASSISTANT_ID', rew_id)
     repo_root = Path(__file__).resolve().parents[1]
     monkeypatch.syspath_prepend(str(repo_root))
-    if 'floyd' in sys.modules:
-        del sys.modules['floyd']
     if 'rewrite_second_person' in sys.modules:
         del sys.modules['rewrite_second_person']
     mod = importlib.import_module('rewrite_second_person')
@@ -24,15 +21,17 @@ def load_rewriter(monkeypatch, rew_id='aid'):
 
 def test_rewrite_returns_content(monkeypatch):
     mod, client, openai_cls = load_rewriter(monkeypatch)
-    instance = mod.RewriteSecondPerson('aid')
-    monkeypatch.setattr(instance, 'chat', MagicMock(return_value={'content': 'out'}))
+    client.chat.completions.create.return_value = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content='out'))]
+    )
+    instance = mod.RewriteSecondPerson()
     result = instance.rewrite('hi')
-    instance.chat.assert_called_once_with('hi')
+    client.chat.completions.create.assert_called_once()
     assert result == 'out'
 
 
 def test_lambda_handler_success(monkeypatch):
-    mod, client, openai_cls = load_rewriter(monkeypatch, rew_id='rid')
+    mod, client, openai_cls = load_rewriter(monkeypatch)
     mock_rewriter = MagicMock()
     mock_rewriter.rewrite.return_value = 'rewritten'
     monkeypatch.setattr(mod, 'RewriteSecondPerson', MagicMock(return_value=mock_rewriter))
@@ -41,7 +40,7 @@ def test_lambda_handler_success(monkeypatch):
     assert resp['statusCode'] == 200
     data = json.loads(resp['body'])
     assert data['results']['single_message'] == 'rewritten'
-    mod.RewriteSecondPerson.assert_called_once_with('rid')
+    mod.RewriteSecondPerson.assert_called_once_with()
     mock_rewriter.rewrite.assert_called_once_with('hello')
 
 
