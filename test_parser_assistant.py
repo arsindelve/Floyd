@@ -39,10 +39,10 @@ TEST_CASES = [
     ("Push Floyd", "no"),
     ("Floyd, can you help me?", "Can you help me?"),
     ("Tell Floyd he’s amazing", "You're amazing"),
-    ("Say to Floyd ‘Thanks for everything’", "Thanks for everything"),
+    ("Say to Floyd ‘Thanks for everything’", "Thank you for everything"),
     ("Ask Floyd to please forgive me", "Please forgive me"),
     ("Ask Floyd to wait here", "Wait here"),
-    ("Tell Floyd not to touch anything", "Don't touch anything"),
+    ("Tell Floyd not to touch anything", "Do not touch anything"),
     ("Whisper to Floyd that I believe in him", "I believe in you"),
     ("Say to Floyd 'You really hurt me'", "You really hurt me"),
     ("Ask Floyd to stay safe", "Stay safe"),
@@ -63,7 +63,9 @@ TEST_CASES = [
     ("Walk toward Floyd", "no"),
     ("Hug Floyd tightly", "no"),
     ("Cry", "no"),
-    ("Imagine a world without Floyd", "no")
+    ("Imagine a world without Floyd", "no"),
+    ("Say barf to Floyd", "Barf"),
+    ("Tell John that he stinks", "You stink")
 ]
 
 # Normalize by stripping extra quotes, whitespace, and trailing periods

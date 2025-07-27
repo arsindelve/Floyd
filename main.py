@@ -3,6 +3,14 @@ from floyd import Floyd
 from router import Router
 import json
 
+# Deployment version marker - increment this when making changes
+DEPLOYMENT_VERSION = "1.0.1"
+print(f"Floyd Lambda initialized - Version: {DEPLOYMENT_VERSION}")
+
+# Deployment version marker - increment this when making changes
+DEPLOYMENT_VERSION = "1.0.1"
+print(f"Floyd Lambda initialized - Version: {DEPLOYMENT_VERSION}")
+
 # Map assistant types to their OpenAI assistant IDs
 ASSISTANT_MAP = {
     "basic_response": os.environ.get("OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID"),
