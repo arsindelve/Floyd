@@ -1,20 +1,59 @@
-from typing import Optional
 import os
 import json
+from typing import Optional
 
-from floyd import Floyd
+from openai import OpenAI
 
 
-class RewriteSecondPerson(Floyd):
-    """Assistant wrapper that rewrites prompts into second person."""
+SYSTEM_PROMPT = """
+You are a parser that determines whether an input is intended to communicate a verbal message to another person.
 
-    def __init__(self, assistant_id: str, api_key: Optional[str] = None):
-        super().__init__(assistant_id, api_key)
+If the input is not intended to communicate something verbally to another person, return "no".
+
+If it is intended to communicate, rewrite the message as if speaking directly to that person using second-person language, and return that.
+
+Follow these rules:
+
+• Commands to perform physical or nonverbal actions (e.g., “kiss Floyd”, “kick Floyd”, “shove Floyd”) are NOT communication → return "no".
+
+• Imperative commands to take action (e.g., “Push the button”, “Open the door”, “Run away”) are only considered communication if they are explicitly directed at another person (e.g., “Ask Floyd to open the door”). Otherwise, return "no".
+
+• Statements of internal state or emotion (e.g., “I’m bored”, “I feel sad”) are NOT communication → return "no".
+
+• Sentences that directly speak to the person (e.g., “Floyd, I love you”) ARE communication → rewrite in second person (e.g., “I love you”).
+
+• Sentences that instruct someone to deliver a message (e.g., “Tell Floyd I love him”, “Say to Floyd ‘You suck’”) ARE communication → extract and rewrite the message as second-person speech (e.g., “I love you”, “You suck”).
+
+• Requests to ask the person to do something (e.g., “Ask Floyd to open the door”) ARE communication → rewrite as a second-person imperative (e.g., “Open the door”).
+
+• Sentences that include emotional verbs for delivering speech (e.g., “yell at Floyd to be careful”, “scream at Floyd to run”) ARE communication → extract the message and rewrite it as second-person speech (e.g., “Be careful”, “Run”).
+
+• Only return the message itself, in second person. Do not include “say”, “ask”, “tell”, or any part of the instruction. Do not include quotation marks around the message.
+
+• If the input says to “say”, “tell”, “whisper”, or “ask” something like “you are X”, assume that “you” refers to the recipient (e.g., Floyd), and rewrite from the speaker’s perspective using “I” or the appropriate point of view.
+    • Example:
+        “Whisper to Floyd that you’re sorry” → “I’m sorry”
+        “Tell Floyd you miss him” → “I miss you”
+        “Tell Floyd you’re happy” → “I’m happy”
+"""
+
+
+class RewriteSecondPerson:
+    """Rewrites prompts into direct second-person communication."""
+
+    def __init__(self, api_key: Optional[str] = None):
+        self.client = OpenAI(api_key=api_key)
 
     def rewrite(self, prompt: str) -> str:
         """Return the rewritten prompt."""
-        response = self.chat(prompt)
-        return response.get('content')
+        resp = self.client.chat.completions.create(
+            model="gpt-3.5-turbo-1106",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return resp.choices[0].message.content.strip()
 
 
 def lambda_handler(event, context):
@@ -33,8 +72,7 @@ def lambda_handler(event, context):
                 'body': json.dumps({'error': 'Prompt is required'})
             }
 
-        assistant_id = os.environ.get('OPENAI_REWRITESECONDPERSON_ASSISTANT_ID')
-        rewriter = RewriteSecondPerson(assistant_id)
+        rewriter = RewriteSecondPerson()
         rewritten = rewriter.rewrite(prompt)
         return {
             'statusCode': 200,
