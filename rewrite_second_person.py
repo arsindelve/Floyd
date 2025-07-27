@@ -20,7 +20,9 @@ Follow these rules:
 
 • Statements of internal state or emotion (e.g., “I’m bored”, “I feel sad”) are NOT communication → return "no".
 
-• Sentences that directly speak to the person (e.g., “Floyd, I love you”) ARE communication → rewrite in second person (e.g., “I love you”).
+• Sentences that directly speak to the person (e.g., "Floyd, I love you") ARE communication → rewrite in second person (e.g., "I love you").
+
+• Direct commands addressed to a person by name or title (e.g., "Bartender, go west", "Floyd, stop talking") ARE communication → rewrite as second-person imperative (e.g., "Go west", "Stop talking").
 
 • Sentences that instruct someone to deliver a message (e.g., “Tell Floyd I love him”, “Say to Floyd ‘You suck’”) ARE communication → extract and rewrite the message as second-person speech (e.g., “I love you”, “You suck”).
 
