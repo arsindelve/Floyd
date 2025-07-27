@@ -7,7 +7,7 @@ def main():
     with open('rewrite_event.json', 'r') as f:
         event = json.load(f)
 
-    response = lambda_handler(event, None)
+    response = lambda_handler(event)
     print(json.dumps(response, indent=2))
 
 

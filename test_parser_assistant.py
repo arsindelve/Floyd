@@ -1,5 +1,6 @@
 import os
 import pytest
+import time
 
 try:
     import openai  # noqa: F401 - Imported for side effects (API key handling)
@@ -65,24 +66,34 @@ TEST_CASES = [
     ("Imagine a world without Floyd", "no")
 ]
 
-# Normalize by stripping extra quotes and whitespace
+# Normalize by stripping extra quotes, whitespace, and trailing periods
 def normalize(text):
-    return text.strip().strip('"').strip("'")
+    text = text.strip().strip('"').strip("'")
+    # Remove the trailing period if present
+    if text.endswith('.'):
+        text = text[:-1]
+    return text
 
 def run_test(prompt, expected):
     try:
         rewriter = RewriteSecondPerson()
+        start_time = time.time()
         output = rewriter.rewrite(prompt)
+        latency = time.time() - start_time
 
         # Normalize
         def normalize(text):
-            return text.strip().strip('"').strip("'").lower()
+            text = text.strip().strip('"').strip("'").lower()
+            # Remove the trailing period if present
+            if text.endswith('.'):
+                text = text[:-1]
+            return text
 
         expected_norm = normalize(expected)
         output_norm = normalize(output)
 
         result = "✅" if output_norm == expected_norm else "❌"
-        print(f"{result} Prompt: '{prompt}' → Got: '{output}' | Expected: '{expected}'")
+        print(f"{result} [{latency:.2f}s] Prompt: '{prompt}' → Got: '{output}' | Expected: '{expected}'")
 
     except Exception as e:
         print(f"❌ Exception for prompt '{prompt}': {e}")

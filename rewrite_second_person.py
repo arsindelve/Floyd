@@ -1,8 +1,8 @@
-import os
 import json
 from typing import Optional
 
 from openai import OpenAI
+from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionSystemMessageParam
 
 
 SYSTEM_PROMPT = """
@@ -46,17 +46,25 @@ class RewriteSecondPerson:
 
     def rewrite(self, prompt: str) -> str:
         """Return the rewritten prompt."""
+        messages = [
+            ChatCompletionSystemMessageParam(
+                role="system",
+                content=SYSTEM_PROMPT
+            ),
+            ChatCompletionUserMessageParam(
+                role="user",
+                content=prompt
+            )
+        ]
         resp = self.client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
+            model="gpt-4o",
+            temperature=0,
+            messages=messages,
         )
         return resp.choices[0].message.content.strip()
 
 
-def lambda_handler(event, context):
+def lambda_handler(event):
     """AWS Lambda entrypoint for the rewrite API."""
     try:
         body = event.get('body')
@@ -83,4 +91,3 @@ def lambda_handler(event, context):
             'statusCode': 500,
             'body': json.dumps({'error': str(e)})
         }
-
