@@ -2,20 +2,20 @@ import os
 import pytest
 
 try:
-    import openai
+    import openai  # noqa: F401 - Imported for side effects (API key handling)
 except Exception:
     pytest.skip("openai package not installed", allow_module_level=True)
 
 from dotenv import load_dotenv
+from rewrite_second_person import RewriteSecondPerson
 
-# Load your OpenAI API key and Assistant ID from .env
+# Load your OpenAI API key from .env
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
-ASSISTANT_ID = os.getenv("OPENAI_REWRITESECONDPERSON_ASSISTANT_ID")
 
-if not ASSISTANT_ID:
+if not openai.api_key:
     pytest.skip(
-        "Missing Assistant ID. Skipping manual assistant tests.",
+        "Missing OpenAI API key. Skipping manual assistant tests.",
         allow_module_level=True,
     )
 
@@ -71,28 +71,8 @@ def normalize(text):
 
 def run_test(prompt, expected):
     try:
-        thread = openai.beta.threads.create()
-        openai.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=prompt
-        )
-        run = openai.beta.threads.runs.create(
-            thread_id=thread.id,
-            assistant_id=ASSISTANT_ID
-        )
-        # Poll until run is complete
-        while True:
-            run = openai.beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-            if run.status in ["completed", "failed"]:
-                break
-
-        if run.status != "completed":
-            print(f"❌ Test failed: '{prompt}' (Run error: {run.status})")
-            return
-
-        messages = openai.beta.threads.messages.list(thread_id=thread.id)
-        output = messages.data[0].content[0].text.value.strip()
+        rewriter = RewriteSecondPerson()
+        output = rewriter.rewrite(prompt)
 
         # Normalize
         def normalize(text):
