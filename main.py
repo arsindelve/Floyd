@@ -1,7 +1,6 @@
 import os
 from floyd import Floyd
 from router import Router
-from rewrite_second_person import RewriteSecondPerson
 import json
 
 # Map assistant types to their OpenAI assistant IDs
@@ -50,18 +49,6 @@ def lambda_handler(event, context):
 
         if assistant_type == 'router':
             print("Processing router assistant type")
-            rewrite_id = ASSISTANT_MAP.get('RewriteSecondPerson')
-            print(f"Using RewriteSecondPerson assistant id: {rewrite_id}")
-            rewriter = RewriteSecondPerson(rewrite_id)
-            new_prompt = rewriter.rewrite(prompt)
-            print("Rewritten prompt:", new_prompt)
-            if new_prompt.strip().lower() == 'no':
-                print("Rewrite returned 'no'; short circuiting")
-                return {
-                    'statusCode': 200,
-                    'body': json.dumps({'results': {'single_message': 'no'}})
-                }
-            prompt = new_prompt
             router = Router(assistant_id)
             print(f"Routing with assistant id: {assistant_id}")
             route = router.route(prompt)
