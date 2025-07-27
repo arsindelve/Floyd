@@ -66,11 +66,8 @@ def test_lambda_router(monkeypatch):
     main = load_main(
         monkeypatch,
         router_id='rid',
-        route_ids={'ASKQUESTION': 'qid', 'REWRITESECONDPERSON': 'rewid'}
+        route_ids={'ASKQUESTION': 'qid'}
     )
-    mock_rewriter = MagicMock()
-    mock_rewriter.rewrite.return_value = 'rewritten'
-    monkeypatch.setattr(main, 'RewriteSecondPerson', MagicMock(return_value=mock_rewriter))
     mock_router = MagicMock()
     mock_router.route.return_value = 'AskQuestion'
     monkeypatch.setattr(main, 'Router', MagicMock(return_value=mock_router))
@@ -82,34 +79,11 @@ def test_lambda_router(monkeypatch):
     assert resp['statusCode'] == 200
     data = json.loads(resp['body'])
     assert data['results']['single_message'] == 'resp'
-    main.RewriteSecondPerson.assert_called_once_with('rewid')
-    mock_rewriter.rewrite.assert_called_once_with('hello')
     main.Router.assert_called_once_with('rid')
-    mock_router.route.assert_called_once_with('rewritten')
+    mock_router.route.assert_called_once_with('hello')
     main.Floyd.assert_called_once_with('qid')
-    mock_floyd.chat.assert_called_once_with('rewritten')
+    mock_floyd.chat.assert_called_once_with('hello')
 
-
-def test_lambda_router_rewrite_no(monkeypatch):
-    main = load_main(
-        monkeypatch,
-        router_id='rid',
-        route_ids={'REWRITESECONDPERSON': 'rewid'}
-    )
-    mock_rewriter = MagicMock()
-    mock_rewriter.rewrite.return_value = 'no'
-    monkeypatch.setattr(main, 'RewriteSecondPerson', MagicMock(return_value=mock_rewriter))
-    monkeypatch.setattr(main, 'Router', MagicMock())
-    monkeypatch.setattr(main, 'Floyd', MagicMock())
-    event = {'assistant': 'router', 'prompt': 'hello'}
-    resp = main.lambda_handler(event, None)
-    assert resp['statusCode'] == 200
-    data = json.loads(resp['body'])
-    assert data['results']['single_message'] == 'no'
-    main.RewriteSecondPerson.assert_called_once_with('rewid')
-    mock_rewriter.rewrite.assert_called_once_with('hello')
-    main.Router.assert_not_called()
-    main.Floyd.assert_not_called()
 
 
 def test_lambda_exception(monkeypatch):
