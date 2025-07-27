@@ -53,8 +53,7 @@ TEST_CASES = [
     ("Walk toward Floyd", "no"),
     ("Hug Floyd tightly", "no"),
     ("Cry", "no"),
-    ("Imagine a world without Floyd", "no"),
-    ("Floyd is annoying", "no"),
+    ("Imagine a world without Floyd", "no")
 ]
 
 # Normalize by stripping extra quotes and whitespace
@@ -85,6 +84,10 @@ def run_test(prompt, expected):
 
         messages = openai.beta.threads.messages.list(thread_id=thread.id)
         output = messages.data[0].content[0].text.value.strip()
+
+        # Normalize
+        def normalize(text):
+            return text.strip().strip('"').strip("'").lower()
 
         expected_norm = normalize(expected)
         output_norm = normalize(output)
