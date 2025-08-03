@@ -2,6 +2,8 @@ import os
 from openAIAssistantClient import OpenAIAssistantClient
 from characters.floyd import Floyd
 from rewrite_second_person import RewriteSecondPerson
+from characters.blather import Blather
+from characters.ambassador import Ambassador
 import json
 
 # Deployment version marker - increment this when making changes
@@ -11,7 +13,6 @@ print(f"Floyd Lambda initialized - Version: {DEPLOYMENT_VERSION}")
 # Deployment version marker - increment this when making changes
 DEPLOYMENT_VERSION = "1.0.1"
 print(f"Floyd Lambda initialized - Version: {DEPLOYMENT_VERSION}")
-
 
 def lambda_handler(event, context):
     try:
@@ -39,6 +40,16 @@ def lambda_handler(event, context):
             rewriter = RewriteSecondPerson()
             rewritten = rewriter.rewrite(prompt)
             result1 = {"single_message": rewritten}
+        elif assistant_type == 'blather':
+            print("Processing Blather locally")
+            blather = Blather()
+            response = blather.blather(prompt)
+            result1 = {"single_message": response}
+        elif assistant_type == 'ambassador':
+            print("Processing Ambassador locally")
+            ambassador = Ambassador()
+            response = ambassador.respond(prompt)
+            result1 = {"single_message": response}
         elif assistant_type == 'floyd':
             floyd_assistant_id = os.environ.get("OPENAI_ROUTER_ASSISTANT_ID")
             if not floyd_assistant_id:
@@ -61,7 +72,7 @@ def lambda_handler(event, context):
         else:
             return {
                 'statusCode': 400,
-                'body': json.dumps({'error': 'Unknown assistant type. Use "floyd" or "RewriteSecondPerson"'})
+                'body': json.dumps({'error': 'Unknown assistant type. Use "floyd", "RewriteSecondPerson", "blather", or "ambassador"'})
             }
 
         return {
