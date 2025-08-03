@@ -1,5 +1,5 @@
 import os
-from floyd import Floyd
+from openAIAssistantClient import Floyd
 import sys
 from dotenv import load_dotenv
 

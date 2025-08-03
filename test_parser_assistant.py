@@ -67,6 +67,8 @@ TEST_CASES = [
 #    ("Say barf to Floyd", "Barf"),
 #    ("Tell John that he stinks", "You stink"),
     ("Bartender, go west", "Go west"),
+    ("Bartender, go south", "Go south"),
+    ("floyd, go south", "Go south"),
     ("Bartender, walk west", "Walk west")
 ]
 

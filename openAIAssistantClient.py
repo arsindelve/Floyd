@@ -4,10 +4,10 @@ import time
 from openai import OpenAI
 
 
-class Floyd:
+class OpenAIAssistantClient:
     def __init__(self, assistant_id: str, api_key: Optional[str] = None):
         """
-        Initialize Floyd with an existing OpenAI assistant ID.
+        Initialize OpenAIAssistantClient with an existing OpenAI assistant ID.
 
         Args:
             assistant_id: The ID of the existing OpenAI assistant to use
