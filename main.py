@@ -12,19 +12,6 @@ print(f"Floyd Lambda initialized - Version: {DEPLOYMENT_VERSION}")
 DEPLOYMENT_VERSION = "1.0.1"
 print(f"Floyd Lambda initialized - Version: {DEPLOYMENT_VERSION}")
 
-# Map assistant types to their OpenAI assistant IDs
-ASSISTANT_MAP = {
-    "basic_response": os.environ.get("OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID"),
-    "floyd": os.environ.get("OPENAI_ROUTER_ASSISTANT_ID"),
-    "DoSomething": os.environ.get("OPENAI_DOSOMETHING_ASSISTANT_ID"),
-    "PickUp": os.environ.get("OPENAI_PICKUP_ASSISTANT_ID"),
-    "GoSomewhere": os.environ.get("OPENAI_GOSOMEWHERE_ASSISTANT_ID"),
-    "AskQuestion": os.environ.get("OPENAI_ASKQUESTION_ASSISTANT_ID"),
-    "GiveInstruction": os.environ.get("OPENAI_GIVEINSTRUCTION_ASSISTANT_ID"),
-    "SocialEmotional": os.environ.get("OPENAI_SOCIALEMOTIONAL_ASSISTANT_ID"),
-    "MetaCommand": os.environ.get("OPENAI_METACOMMAND_ASSISTANT_ID"),
-    "Nonsense": os.environ.get("OPENAI_NONSENSE_ASSISTANT_ID")
-}
 
 def lambda_handler(event, context):
     try:
@@ -52,38 +39,30 @@ def lambda_handler(event, context):
             rewriter = RewriteSecondPerson()
             rewritten = rewriter.rewrite(prompt)
             result1 = {"single_message": rewritten}
-            
-            return {
-                'statusCode': 200,
-                'body': json.dumps({
-                    'results': {
-                        **result1
-                    }
-                })
-            }
-
-        assistant_id = ASSISTANT_MAP.get(assistant_type)
-        if not assistant_id:
-            print(f"Unknown assistant type: {assistant_type}")
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'Unknown assistant type'})
-            }
-
-        if assistant_type == 'floyd':
+        elif assistant_type == 'floyd':
+            floyd_assistant_id = os.environ.get("OPENAI_ROUTER_ASSISTANT_ID")
+            if not floyd_assistant_id:
+                return {
+                    'statusCode': 500,
+                    'body': json.dumps({'error': 'Floyd assistant ID not configured'})
+                }
             try:
-                router = Floyd(assistant_id)
+                router = Floyd(floyd_assistant_id)
                 route, assistant_id = router.route_and_get_assistant_id(prompt)
+                client = OpenAIAssistantClient(assistant_id)
+                print(f"Chatting with assistant id: {assistant_id}")
+                response = client.chat(prompt)
+                result1 = {"single_message": response['content']}
             except ValueError as e:
                 return {
                     'statusCode': 400,
                     'body': json.dumps({'error': str(e)})
                 }
-        
-        client = OpenAIAssistantClient(assistant_id)
-        print(f"Chatting with assistant id: {assistant_id}")
-        response = client.chat(prompt)
-        result1 = {"single_message": response['content']}
+        else:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'error': 'Unknown assistant type. Use "floyd" or "RewriteSecondPerson"'})
+            }
 
         return {
             'statusCode': 200,
