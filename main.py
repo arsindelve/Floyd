@@ -25,15 +25,18 @@ class AssistantRequest:
 class AssistantResponse:
     """Data class for assistant responses."""
     content: str
-    
+    metadata: Optional[Dict[str, Any]] = None
+
     def to_lambda_response(self) -> Dict[str, Any]:
         """Convert to AWS Lambda response format."""
+        results = {'single_message': self.content}
+        if self.metadata:
+            results['metadata'] = self.metadata
+
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'results': {
-                    'single_message': self.content
-                }
+                'results': results
             })
         }
 
@@ -54,11 +57,15 @@ class AssistantError(Exception):
 
 class AssistantInterface(ABC):
     """Interface for all assistants (Single Responsibility + Interface Segregation)."""
-    
+
     @abstractmethod
     def process(self, prompt: str) -> str:
         """Process a prompt and return a response."""
         pass
+
+    def get_metadata(self) -> Optional[Dict[str, Any]]:
+        """Get metadata from the last processing operation. Override if needed."""
+        return None
 
 
 class RewriteAssistant(AssistantInterface):
@@ -91,23 +98,81 @@ class AmbassadorAssistant(AssistantInterface):
         return self._ambassador.respond(prompt)
 
 
+class ResponseParser:
+    """Parses assistant responses that may contain structured JSON data."""
+
+    @staticmethod
+    def parse(content: str) -> tuple[str, Optional[Dict[str, Any]]]:
+        """
+        Parse assistant response. Returns (message, parameters).
+
+        If the response is JSON with a 'message' field, extracts the message
+        and any additional fields as parameters. Otherwise returns the content
+        as-is with no parameters.
+
+        Expected JSON format from assistants:
+        {
+            "message": "Floyd heads north...",
+            "direction": "north"
+        }
+        or
+        {
+            "message": "Floyd picks up the sword.",
+            "object": "sword"
+        }
+        """
+        try:
+            # Try to parse as JSON
+            data = json.loads(content.strip())
+
+            # Must be a dict with 'message' field
+            if isinstance(data, dict) and 'message' in data:
+                message = data.pop('message')
+                parameters = data if data else None
+                return message, parameters
+
+            # Not the expected format, return as-is
+            return content, None
+
+        except (json.JSONDecodeError, AttributeError):
+            # Not JSON or invalid format, return content as-is
+            return content, None
+
+
 class FloydAssistant(AssistantInterface):
     """Wrapper for Floyd routing assistant."""
-    
+
     def __init__(self):
         self._floyd_assistant_id = os.environ.get("OPENAI_ROUTER_ASSISTANT_ID")
         if not self._floyd_assistant_id:
             raise AssistantError("Floyd assistant ID not configured", 500)
-    
+        self._last_metadata: Optional[Dict[str, Any]] = None
+
     def process(self, prompt: str) -> str:
         try:
             router = Floyd(self._floyd_assistant_id)
             route, assistant_id = router.route_and_get_assistant_id(prompt)
             client = OpenAIAssistantClient(assistant_id)
             response = client.chat(prompt)
-            return response['content']
+            raw_content = response['content']
+
+            # Parse response - may contain structured JSON data
+            message, parameters = ResponseParser.parse(raw_content)
+
+            # Build metadata
+            self._last_metadata = {
+                'assistant_type': route
+            }
+            if parameters:
+                self._last_metadata['parameters'] = parameters
+
+            return message
         except ValueError as e:
             raise AssistantError(str(e))
+
+    def get_metadata(self) -> Optional[Dict[str, Any]]:
+        """Return metadata from the last routing operation."""
+        return self._last_metadata
 
 
 class AssistantFactory:
@@ -153,18 +218,19 @@ class RequestParser:
 
 class AssistantService:
     """Main service for processing assistant requests (Dependency Inversion)."""
-    
+
     def __init__(self, factory: AssistantFactory, parser: RequestParser):
         self.factory = factory
         self.parser = parser
-    
+
     def process_request(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """Process an assistant request."""
         try:
             request = self.parser.parse(event)
             assistant = self.factory.create(request.assistant_type)
             content = assistant.process(request.prompt)
-            response = AssistantResponse(content=content)
+            metadata = assistant.get_metadata()
+            response = AssistantResponse(content=content, metadata=metadata)
             return response.to_lambda_response()
         except AssistantError as e:
             return e.to_lambda_response()

@@ -30,14 +30,53 @@ The system supports these specialized assistants:
 - `basic_response` - General responses
 - `router` - Routes to other assistants
 - `DoSomething` - Action-oriented tasks
-- `PickUp` - Object pickup tasks
-- `GoSomewhere` - Movement/navigation
+- `PickUp` - Object pickup tasks (returns JSON with `object` parameter)
+- `GoSomewhere` - Movement/navigation (returns JSON with `direction` parameter)
 - `AskQuestion` - Question handling
 - `GiveInstruction` - Instruction giving
 - `SocialEmotional` - Social/emotional interactions
 - `MetaCommand` - Meta commands
 - `Nonsense` - Nonsense handling
 - `RewriteSecondPerson` - Prompt rewriting
+
+### Structured Responses
+Some assistants return structured JSON responses to provide metadata about the action:
+
+**GoSomewhere** - Returns direction information:
+```json
+{
+  "message": "Floyd heads north towards the castle.",
+  "direction": "north"
+}
+```
+
+**PickUp** - Returns object information:
+```json
+{
+  "message": "Floyd picks up the sword.",
+  "object": "sword"
+}
+```
+
+The Lambda handler automatically parses these JSON responses and includes the metadata in the response:
+```json
+{
+  "statusCode": 200,
+  "body": {
+    "results": {
+      "single_message": "Floyd heads north towards the castle.",
+      "metadata": {
+        "assistant_type": "GoSomewhere",
+        "parameters": {
+          "direction": "north"
+        }
+      }
+    }
+  }
+}
+```
+
+Assistants that don't return JSON will work as before (backward compatible).
 
 ### Flow
 1. User sends prompt with `assistant: "router"`
