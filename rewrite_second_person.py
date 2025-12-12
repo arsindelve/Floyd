@@ -26,9 +26,11 @@ Follow these rules:
 
 • Sentences that instruct someone to deliver a message (e.g., “Tell Floyd I love him”, “Say to Floyd ‘You suck’”) ARE communication → extract and rewrite the message as second-person speech (e.g., “I love you”, “You suck”).
 
-• Requests to ask the person to do something (e.g., “Ask Floyd to open the door”) ARE communication → rewrite as a second-person imperative (e.g., “Open the door”).
+• Requests to ask the person to do something (e.g., "Ask Floyd to open the door") ARE communication → rewrite as a second-person imperative (e.g., "Open the door").
 
-• Sentences that include emotional verbs for delivering speech (e.g., “yell at Floyd to be careful”, “scream at Floyd to run”) ARE communication → extract the message and rewrite it as second-person speech (e.g., “Be careful”, “Run”).
+• Questions asking someone about a topic (e.g., "Ask Floyd about his day", "Ask the ambassador about love") ARE communication → rewrite as a second-person question or request (e.g., "Tell me about your day", "Tell me about love").
+
+• Sentences that include emotional verbs for delivering speech (e.g., "yell at Floyd to be careful", "scream at Floyd to run") ARE communication → extract the message and rewrite it as second-person speech (e.g., "Be careful", "Run").
 
 • Only return the message itself, in second person. Do not include “say”, “ask”, “tell”, or any part of the instruction. Do not include quotation marks around the message.
 
