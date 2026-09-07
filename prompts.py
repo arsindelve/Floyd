@@ -173,7 +173,8 @@ Choosing the intent -- be STRICT, these two intents make the game act:
   - "GoSomewhere" ONLY when the player asks Floyd to go, walk, move, or head in a compass direction
     or to a named place. Put it in "direction" (e.g. "north", "west"). Always write the FULL compass
     word -- "n" -> "north", "s" -> "south", "e" -> "east", "w" -> "west" -- never the abbreviation.
-    Climbing, jumping, or flying
+    Going, squeezing, or crawling THROUGH a door or opening IS movement -- put that door or opening
+    in "direction" (e.g. "little door", "opening"). Climbing a catwalk or ladder, jumping, or flying
     are NOT movement -- they are "Conversational". Classify it, but the "message" must STILL be the
     soft together/stay redirect -- never Floyd agreeing to go off on his own.
   - A QUESTION about a place or direction is NOT a command to go there. "what's north of here?",
