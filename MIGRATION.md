@@ -82,15 +82,16 @@ is a one-line change (`MODEL` in `characters/floyd.py`) plus a re-run of the bat
 - Objects have no feelings (the C# narrator's hard rule, carried over).
 
 ## Known gaps that are NOT the prompt's to fix (C# side)
-- `"go through the little door"` / `"squeeze through the opening"` / `"go into the small opening"`
-  cannot fire the Repair Room door sequence: the Lambda has no room context, so it can't know
-  that opening is north, and mapping "door"→"north" blindly would misfire elsewhere.
-  Fix belongs in `FloydLocationBehaviors.HandleSmallDoorExploration`, which *does* know the
-  room: accept `direction ∈ {north, door, little door, opening, small opening}` there.
-- `ShinyFromitzBoard._outPanelNouns` contains bare `"shiny"`, so any PickUp emitting `object:
-  "shiny"` for an unrelated shiny thing would grant the fromitz board. The prompt now forbids
-  emitting a bare adjective, but the noun list is a foot-gun worth reviewing (it may also be
-  what lets a player type `take shiny` — check before removing).
+- ~~Door/opening phrasings couldn't fire the Repair Room door sequence~~ — **resolved on both
+  sides** (2026-09-07). The Lambda now classifies squeezing/crawling through a door or opening
+  as movement (`5f85e20`), and `HandleSmallDoorExploration` (arsindelve/ZorkAI#564) accepts
+  `north | n | door | little door | small door | opening | small opening | little opening` — the
+  layer that actually knows the room. The ZIL corroborates the phrasing: the original's door
+  routine hangs off `<VERB? THROUGH>`.
+- Bare `"shiny"` in `ShinyFromitzBoard._outPanelNouns` — **keep it.** The ZIL gives the board
+  `(ADJECTIVE SHINY GOOD SEVENTEEN CENTIMETER FROMITZ)` (`comptwo.zabstr:67`), so it is canonical
+  player vocabulary. The only real risk was the Lambda emitting a bare adjective as the object,
+  which the prompt forbids — that is the right layer to guard.
 - The Lambda has no game state, so `"do you have a card"` is answered fuzzy even though Floyd
   carries the lower elevator access card. The original assistant had the identical blind spot.
   Only fixable by passing inventory/room context into the call from the C# side.
@@ -102,4 +103,6 @@ is a one-line change (`MODEL` in `characters/floyd.py`) plus a re-run of the bat
 - [ ] Deploy (SAM/zip) — not done here.
 - [ ] After deploy: remove the dead `OPENAI_*_ASSISTANT_ID` env vars; rotate `OPENAI_API_KEY`
       and move it to Secrets Manager (it is plaintext in the Lambda env).
-- [ ] C#-side follow-ups above (door phrasings; bare `"shiny"` noun).
+- [x] C#-side follow-ups: door phrasings landed in arsindelve/ZorkAI#564; `"shiny"` decided
+      (keep, ZIL-canonical). #564 also carries a ZIL-fidelity fix found along the way — no
+      fromitz-board grant before Floyd has actually been through the door and found it.
