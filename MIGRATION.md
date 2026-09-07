@@ -43,11 +43,63 @@ exploration on `GoSomewhere`+`north`; both verified against the corpus after mig
 Only `OPENAI_API_KEY` is still needed. Every `OPENAI_*_ASSISTANT_ID` is now dead and can be removed.
 (The key is currently stored in plaintext in the Lambda env — move it to Secrets Manager.)
 
+## Evaluation (`eval/floyd_eval.py`, needs `OPENAI_API_KEY`)
+`eval/` holds the prod corpus, the recovery notes, and a harness with three batteries. Re-run
+after ANY prompt edit — every call is stateless, so a single verbatim example anchors hard
+(measured 8/8 identical) and small wording changes shift the distribution.
+
+- `corpus` — all 58 unique prod exchanges, REAL vs MINE side by side.
+- `gamestate` — the two signals the C# side acts on. Final numbers on gpt-4o (3 runs each):
+  mentions/negations/questions false-positive **0/29**, board commands failing **0/13**,
+  north commands failing **0/6**, negated commands ("don't go north") **0/8**.
+- `repetition` — same prompt ×8. Final: dance 8/8 distinct, joke 8/8, story 8/8,
+  fix-the-machine 8/8, hello 6/8; decline alternatives spread flat (max ~29%, no single
+  attractor); fuzzy-memory phrasing spread across six variants.
+
+Voice battery (anthropomorphism bait, fourth-wall bait, dark/adult pressure, lore pressure,
+hostility, hint-seeking, nonsense, warmth) passed with no leaks and no object given feelings.
+
+## Model choice
+**gpt-4o**, deliberately. Head-to-head on the same batteries (2026-09-07):
+
+| model | north-cmd fail | board-cmd fail | mention false-pos | dance/hello/joke distinct | avg / p90 latency |
+|---|---|---|---|---|---|
+| gpt-4o | 0/6 | 0/6 | 0/8 | 8/8 · 6/8 · 8/8 | 0.83s / 1.14s |
+| gpt-5.4-mini | 0/6 | 0/6 | **1/8** (question "should we go north?" fired the door seq 3/3) | 5/8 · 4/8 · 8/8 | 0.96s / 1.14s |
+| gpt-5.4 | **1/6** (`go n` → `dir="n"`, dropped by the C# `== "north"` check) | 0/6 | 0/8 | 5/8 · 5/8 · 8/8 | 1.09s / 1.26s |
+
+The newer models write slightly richer prose but each introduced a game-state failure and both
+are slower; for a companion whose two intents are load-bearing, correctness wins. Switching later
+is a one-line change (`MODEL` in `characters/floyd.py`) plus a re-run of the batteries.
+
+## Hard rules baked into the prompt (do not loosen)
+- **Floyd never goes anywhere on a player command, and never says he will try** (Michael,
+  2026-09-07: "show stopper. NEVER"). The `GoSomewhere` intent is still emitted so the one
+  sanctioned case fires; the *message* is always the "together instead?" / "stay right here"
+  redirect. Verified 0/16 on a movement stress test beyond the corpus.
+- A negated or forbidding command is never an action; a question about a direction is never
+  movement. Both were measured firing the door sequence before the rules existed.
+- Objects have no feelings (the C# narrator's hard rule, carried over).
+
+## Known gaps that are NOT the prompt's to fix (C# side)
+- `"go through the little door"` / `"squeeze through the opening"` / `"go into the small opening"`
+  cannot fire the Repair Room door sequence: the Lambda has no room context, so it can't know
+  that opening is north, and mapping "door"→"north" blindly would misfire elsewhere.
+  Fix belongs in `FloydLocationBehaviors.HandleSmallDoorExploration`, which *does* know the
+  room: accept `direction ∈ {north, door, little door, opening, small opening}` there.
+- `ShinyFromitzBoard._outPanelNouns` contains bare `"shiny"`, so any PickUp emitting `object:
+  "shiny"` for an unrelated shiny thing would grant the fromitz board. The prompt now forbids
+  emitting a bare adjective, but the noun list is a foot-gun worth reviewing (it may also be
+  what lets a player type `take shiny` — check before removing).
+- The Lambda has no game state, so `"do you have a card"` is answered fuzzy even though Floyd
+  carries the lower elevator access card. The original assistant had the identical blind spot.
+  Only fixable by passing inventory/room context into the call from the C# side.
+
 ## Status / TODO
 - [x] Code migrated, `pytest tests/` green (14 tests).
-- [x] Reconstructed prompt evaluated against the full prod corpus; game-critical intents
-      (`take board`→PickUp, `go north`→GoSomewhere) classify correctly.
-- [ ] Voice tuning — see flagged divergences from the corpus eval (repetitive object-declines,
-      over-eager PickUp on non-object "take"s, meta-question sameness). Deliberately left for a
-      later pass.
+- [x] Prompt reconstructed and tuned against the corpus; game-state, repetition, and voice
+      batteries green on gpt-4o (see above).
 - [ ] Deploy (SAM/zip) — not done here.
+- [ ] After deploy: remove the dead `OPENAI_*_ASSISTANT_ID` env vars; rotate `OPENAI_API_KEY`
+      and move it to Secrets Manager (it is plaintext in the Lambda env).
+- [ ] C#-side follow-ups above (door phrasings; bare `"shiny"` noun).
