@@ -1,95 +1,53 @@
-import importlib
+"""Tests for the Lambda handler wiring (main.py) after the Chat Completions migration.
+
+The floyd path no longer routes through a router assistant + assistant IDs; FloydAssistant now
+delegates to characters.floyd.Floyd and surfaces its (message, metadata).
+"""
 import json
-import sys
-from pathlib import Path
-from types import ModuleType
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-import pytest
+import main
 
 
-def load_main(monkeypatch, assistant_id='aid', router_id='rid', route_ids=None):
-    """Import main module with mocked dependencies."""
-    openai_module = ModuleType('openai')
-    openai_module.OpenAI = MagicMock(return_value=MagicMock())
-    monkeypatch.setitem(sys.modules, 'openai', openai_module)
-    monkeypatch.setenv('OPENAI_FLOYD_BASIC_RESPONSE_ASSISTANT_ID', assistant_id)
-    monkeypatch.setenv('OPENAI_ROUTER_ASSISTANT_ID', router_id)
-    if route_ids:
-        for name, val in route_ids.items():
-            monkeypatch.setenv(f'OPENAI_{name.upper()}_ASSISTANT_ID', val)
-    repo_root = Path(__file__).resolve().parents[1]
-    monkeypatch.syspath_prepend(str(repo_root))
-    if 'floyd' in sys.modules:
-        del sys.modules['floyd']
-    if 'router' in sys.modules:
-        del sys.modules['router']
-    if 'main' in sys.modules:
-        del sys.modules['main']
-    if 'rewrite_second_person' in sys.modules:
-        del sys.modules['rewrite_second_person']
-    main = importlib.import_module('main')
-    return main
-
-
-def test_lambda_missing_prompt(monkeypatch):
-    main = load_main(monkeypatch)
-    event = {'assistant': 'basic_response'}
-    resp = main.lambda_handler(event, None)
+def test_lambda_missing_prompt_returns_400():
+    resp = main.lambda_handler({'assistant': 'floyd'}, None)
     assert resp['statusCode'] == 400
     assert json.loads(resp['body'])['error'] == 'Prompt is required'
 
 
-def test_lambda_unknown_assistant(monkeypatch):
-    main = load_main(monkeypatch)
-    event = {'assistant': 'unknown', 'prompt': 'hi'}
-    resp = main.lambda_handler(event, None)
+def test_lambda_unknown_assistant_returns_400():
+    resp = main.lambda_handler({'assistant': 'nope', 'prompt': 'hi'}, None)
     assert resp['statusCode'] == 400
-    assert json.loads(resp['body'])['error'] == 'Unknown assistant type'
+    assert 'Unknown assistant type' in json.loads(resp['body'])['error']
 
 
-def test_lambda_success(monkeypatch):
-    main = load_main(monkeypatch, assistant_id='aid')
-    mock_floyd = MagicMock()
-    mock_floyd.chat.return_value = {'role': 'assistant', 'content': 'resp'}
-    monkeypatch.setattr(main, 'Floyd', MagicMock(return_value=mock_floyd))
-    event = {'assistant': 'basic_response', 'prompt': 'hello'}
-    resp = main.lambda_handler(event, None)
+def test_lambda_floyd_success_passes_message_and_metadata_through():
+    fake = MagicMock()
+    fake.respond.return_value = ("Floyd waves.",
+                                 {"assistant_type": "PickUp", "parameters": {"object": "board"}})
+    with patch.object(main, 'Floyd', return_value=fake):
+        resp = main.lambda_handler({'assistant': 'floyd', 'prompt': 'floyd, take board'}, None)
     assert resp['statusCode'] == 200
-    data = json.loads(resp['body'])
-    assert data['results']['single_message'] == 'resp'
-    main.Floyd.assert_called_once_with('aid')
-    mock_floyd.chat.assert_called_once_with('hello')
+    results = json.loads(resp['body'])['results']
+    assert results['single_message'] == 'Floyd waves.'
+    assert results['metadata'] == {"assistant_type": "PickUp", "parameters": {"object": "board"}}
+    fake.respond.assert_called_once_with('floyd, take board')
 
 
-def test_lambda_router(monkeypatch):
-    main = load_main(
-        monkeypatch,
-        router_id='rid',
-        route_ids={'ASKQUESTION': 'qid'}
-    )
-    mock_router = MagicMock()
-    mock_router.route.return_value = 'AskQuestion'
-    monkeypatch.setattr(main, 'Router', MagicMock(return_value=mock_router))
-    mock_floyd = MagicMock()
-    mock_floyd.chat.return_value = {'role': 'assistant', 'content': 'resp'}
-    monkeypatch.setattr(main, 'Floyd', MagicMock(return_value=mock_floyd))
-    event = {'assistant': 'router', 'prompt': 'hello'}
-    resp = main.lambda_handler(event, None)
-    assert resp['statusCode'] == 200
-    data = json.loads(resp['body'])
-    assert data['results']['single_message'] == 'resp'
-    main.Router.assert_called_once_with('rid')
-    mock_router.route.assert_called_once_with('hello')
-    main.Floyd.assert_called_once_with('qid')
-    mock_floyd.chat.assert_called_once_with('hello')
+def test_lambda_floyd_conversational_omits_metadata_block_when_none():
+    fake = MagicMock()
+    fake.respond.return_value = ("Floyd beeps.", None)
+    with patch.object(main, 'Floyd', return_value=fake):
+        resp = main.lambda_handler({'assistant': 'floyd', 'prompt': 'floyd, hi'}, None)
+    results = json.loads(resp['body'])['results']
+    assert results['single_message'] == 'Floyd beeps.'
+    assert 'metadata' not in results
 
 
-
-def test_lambda_exception(monkeypatch):
-    main = load_main(monkeypatch)
-    monkeypatch.setattr(main, 'Floyd', MagicMock(side_effect=Exception('boom')))
-    event = {'assistant': 'basic_response', 'prompt': 'hello'}
-    resp = main.lambda_handler(event, None)
+def test_lambda_floyd_exception_returns_500_with_message():
+    fake = MagicMock()
+    fake.respond.side_effect = Exception('boom')
+    with patch.object(main, 'Floyd', return_value=fake):
+        resp = main.lambda_handler({'assistant': 'floyd', 'prompt': 'hi'}, None)
     assert resp['statusCode'] == 500
     assert json.loads(resp['body'])['error'] == 'boom'

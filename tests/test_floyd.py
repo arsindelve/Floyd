@@ -1,107 +1,72 @@
-import importlib
-import sys
-from pathlib import Path
-from types import ModuleType, SimpleNamespace
-from unittest.mock import MagicMock
+"""Tests for Floyd's Chat Completions dispatcher (characters/floyd.py).
 
-import pytest
+These replace the old Assistants-API tests (thread/run mocking), which went away with the
+Assistants API on 2026-08-26. The seam under test is now a single chat.completions.create call
+whose JSON reply carries Floyd's line plus the intent the game reads.
+"""
+import json
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+from characters.floyd import Floyd
 
 
-def load_floyd(monkeypatch):
-    """Import floyd module with a mocked openai dependency."""
+def _fake_client(content):
     client = MagicMock()
-    openai_module = ModuleType('openai')
-    openai_module.OpenAI = MagicMock(return_value=client)
-    monkeypatch.setitem(sys.modules, 'openai', openai_module)
-    repo_root = Path(__file__).resolve().parents[1]
-    monkeypatch.syspath_prepend(str(repo_root))
-    if 'floyd' in sys.modules:
-        del sys.modules['floyd']
-    floyd = importlib.import_module('floyd')
-    return floyd, client, openai_module.OpenAI
-
-
-def test_init_sets_attributes(monkeypatch):
-    floyd, client, openai_cls = load_floyd(monkeypatch)
-    instance = floyd.Floyd('aid', api_key='key')
-    openai_cls.assert_called_with(api_key='key')
-    assert instance.client is client
-    assert instance.assistant_id == 'aid'
-
-
-def test_create_thread(monkeypatch):
-    floyd, client, _ = load_floyd(monkeypatch)
-    client.beta.threads.create.return_value = SimpleNamespace(id='tid')
-    instance = floyd.Floyd('aid')
-    tid = instance.create_thread()
-    assert tid == 'tid'
-    client.beta.threads.create.assert_called_once_with()
-
-
-def test_add_message(monkeypatch):
-    floyd, client, _ = load_floyd(monkeypatch)
-    instance = floyd.Floyd('aid')
-    instance.add_message('tid', 'hello')
-    client.beta.threads.messages.create.assert_called_once_with(
-        thread_id='tid', role='user', content='hello'
+    client.chat.completions.create.return_value = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
     )
+    return client
 
 
-def test_run_assistant(monkeypatch):
-    floyd, client, _ = load_floyd(monkeypatch)
-    client.beta.threads.runs.create.return_value = SimpleNamespace(id='run1')
-    client.beta.threads.runs.retrieve.side_effect = [
-        SimpleNamespace(id='run1', status='in_progress'),
-        SimpleNamespace(id='run1', status='completed'),
-    ]
-    assistant_msg = SimpleNamespace(
-        role='assistant',
-        content=[SimpleNamespace(text=SimpleNamespace(value='hi'))]
-    )
-    client.beta.threads.messages.list.return_value = SimpleNamespace(data=[assistant_msg])
-    monkeypatch.setattr(floyd.time, 'sleep', lambda x: None)
-
-    instance = floyd.Floyd('aid')
-    result = instance.run_assistant('tid')
-    assert result == {'role': 'assistant', 'content': 'hi'}
-    client.beta.threads.runs.create.assert_called_once_with(
-        thread_id='tid', assistant_id='aid', instructions=None
-    )
-    assert client.beta.threads.runs.retrieve.call_count == 2
+def _respond(content, prompt="floyd, hi"):
+    with patch("characters.floyd.OpenAI", return_value=_fake_client(content)):
+        return Floyd().respond(prompt)
 
 
-def test_run_assistant_no_message(monkeypatch):
-    floyd, client, _ = load_floyd(monkeypatch)
-    client.beta.threads.runs.create.return_value = SimpleNamespace(id='run1')
-    client.beta.threads.runs.retrieve.return_value = SimpleNamespace(id='run1', status='completed')
-    client.beta.threads.messages.list.return_value = SimpleNamespace(data=[])
-    monkeypatch.setattr(floyd.time, 'sleep', lambda x: None)
-    instance = floyd.Floyd('aid')
-    result = instance.run_assistant('tid')
-    assert result['content'] == 'No response generated'
+def test_pickup_intent_yields_object_metadata():
+    content = json.dumps({"message": 'Floyd shrugs. "If you say so."',
+                          "intent": "PickUp", "object": "Board"})
+    message, metadata = _respond(content, "floyd, take board")
+    assert message == 'Floyd shrugs. "If you say so."'
+    # assistant_type + a lower-cased object are exactly what FloydLocationBehaviors matches on.
+    assert metadata == {"assistant_type": "PickUp", "parameters": {"object": "board"}}
 
 
-def test_chat_creates_thread(monkeypatch):
-    floyd, _, _ = load_floyd(monkeypatch)
-    instance = floyd.Floyd('aid')
-    monkeypatch.setattr(instance, 'create_thread', MagicMock(return_value='tid'))
-    monkeypatch.setattr(instance, 'add_message', MagicMock())
-    monkeypatch.setattr(instance, 'run_assistant', MagicMock(return_value={'role': 'assistant', 'content': 'resp'}))
-    resp = instance.chat('hello')
-    instance.create_thread.assert_called_once_with()
-    instance.add_message.assert_called_once_with('tid', 'hello')
-    instance.run_assistant.assert_called_once_with('tid', None)
-    assert resp['content'] == 'resp'
+def test_gosomewhere_intent_yields_direction_metadata():
+    content = json.dumps({"message": "Okay, Floyd will look.",
+                          "intent": "GoSomewhere", "direction": "North"})
+    _, metadata = _respond(content, "floyd, go north")
+    assert metadata == {"assistant_type": "GoSomewhere", "parameters": {"direction": "north"}}
 
 
-def test_chat_existing_thread(monkeypatch):
-    floyd, _, _ = load_floyd(monkeypatch)
-    instance = floyd.Floyd('aid')
-    monkeypatch.setattr(instance, 'create_thread', MagicMock())
-    monkeypatch.setattr(instance, 'add_message', MagicMock())
-    monkeypatch.setattr(instance, 'run_assistant', MagicMock(return_value={'role': 'assistant', 'content': 'resp'}))
-    resp = instance.chat('hello', thread_id='tid')
-    instance.create_thread.assert_not_called()
-    instance.add_message.assert_called_once_with('tid', 'hello')
-    instance.run_assistant.assert_called_once_with('tid', None)
-    assert resp['content'] == 'resp'
+def test_conversational_reply_has_no_parameters():
+    content = json.dumps({"message": "Hello! Floyd is really glad you are here.",
+                          "intent": "Conversational"})
+    message, metadata = _respond(content, "floyd, hello")
+    assert message.startswith("Hello!")
+    assert metadata == {"assistant_type": "Conversational"}
+
+
+def test_pickup_without_object_emits_no_parameters():
+    # Defensive: an intent label with no slot value must not fabricate an empty parameter.
+    content = json.dumps({"message": "Floyd is not sure what to grab.", "intent": "PickUp"})
+    _, metadata = _respond(content, "floyd, take")
+    assert metadata == {"assistant_type": "PickUp"}
+
+
+def test_non_json_reply_falls_back_to_plain_message():
+    message, metadata = _respond("Floyd waves happily.", "floyd, hi")
+    assert message == "Floyd waves happily."
+    assert metadata is None
+
+
+def test_request_uses_json_mode_and_floyd_system_prompt():
+    client = _fake_client(json.dumps({"message": "Hi", "intent": "Conversational"}))
+    with patch("characters.floyd.OpenAI", return_value=client):
+        Floyd().respond("floyd, hello")
+    _, kwargs = client.chat.completions.create.call_args
+    assert kwargs["response_format"] == {"type": "json_object"}
+    assert kwargs["messages"][0]["role"] == "system"
+    assert "You are Floyd" in kwargs["messages"][0]["content"]
+    assert kwargs["messages"][1] == {"role": "user", "content": "floyd, hello"}
