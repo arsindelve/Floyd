@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Floyd - the companion-conversation Lambda that ZorkAI's ChatLambda invokes.
+
+# No secrets in this file, so it is committed. The OpenAI key is read at cold start from the
+# Secrets Manager secret OpenAiApiKey (see openai_key.py), the same secret the ZorkAI game Lambdas
+# use. This file used to carry the key as a plain OPENAI_API_KEY, plus ten OPENAI_*_ASSISTANT_ID
+# variables that died with the Assistants API (see MIGRATION.md).
+
+Resources:
+  MySimpleLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: main.lambda_handler
+      Runtime: python3.13
+      CodeUri: .
+      Timeout: 60
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:OpenAiApiKey-*

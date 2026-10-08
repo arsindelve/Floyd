@@ -1,9 +1,8 @@
 venv/
+.venv/
 __pycache__/
 build/
 .aws-sam/
-template.yaml
 .env
-samconfig.toml
 deploy.ps1
 deployment.zip
