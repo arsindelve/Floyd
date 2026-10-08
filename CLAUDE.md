@@ -104,9 +104,11 @@ Assistants that don't return JSON will work as before (backward compatible).
 - `response.json` - Sample response
 
 ## Environment Variables
-All OpenAI assistant IDs are configured via environment variables:
-- `OPENAI_API_KEY` - OpenAI API key
-- `OPENAI_*_ASSISTANT_ID` - Assistant IDs for each type
+- `OPENAI_API_KEY` - OpenAI API key. **In AWS it is not set on the function**: `openai_key.py` reads it
+  at cold start from the Secrets Manager secret `OpenAiApiKey`, shared with the ZorkAI game Lambdas, so
+  a key rotation is one `put-secret-value` plus a cold start. Locally, set it in `.env` and the secret
+  is never read.
+- The old `OPENAI_*_ASSISTANT_ID` variables are gone. They died with the Assistants API (see `MIGRATION.md`).
 
 ## Testing
 - Use `manual_test_main.py` to test locally with `event.json`
@@ -121,7 +123,10 @@ All OpenAI assistant IDs are configured via environment variables:
 - The router short-circuits on "no" rewrite responses
 
 ## Security Considerations
-⚠️ **WARNING**: The `template.yaml` file contains exposed OpenAI API keys and assistant IDs. In production, these should be stored in AWS Secrets Manager or similar secure storage.
+`template.yaml` and `samconfig.toml` hold no secrets and are committed. Keep it that way: the OpenAI
+key belongs in the `OpenAiApiKey` secret, never in the template (it used to be there, which is why
+these files were once gitignored). Deploy with `sam build && sam deploy`. The build runs in a container
+because the runtime is python3.13, and the deploy uses the `delve` AWS profile (account 576431164672).
 
 ## Git Status
 - Modified: `event.json` (test event)

@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
 
+from openai_key import ensure_openai_key
 from characters.floyd import Floyd
 from rewrite_second_person import RewriteSecondPerson
 from characters.blather import Blather
@@ -10,6 +11,9 @@ from characters.ambassador import Ambassador
 
 DEPLOYMENT_VERSION = "1.0.1"
 print(f"Floyd Lambda initialized - Version: {DEPLOYMENT_VERSION}")
+
+# Once per cold start, before any request builds an OpenAI client. See openai_key.py.
+ensure_openai_key()
 
 
 @dataclass
