@@ -60,7 +60,52 @@ Voice battery (anthropomorphism bait, fourth-wall bait, dark/adult pressure, lor
 hostility, hint-seeking, nonsense, warmth) passed with no leaks and no object given feelings.
 
 ## Model choice
-**gpt-4o**, deliberately. Head-to-head on the same batteries (2026-09-07):
+**gpt-5.4** (since 2026-10-14). OpenAI retires gpt-4o, gpt-4o-mini, gpt-4.1 and gpt-4.1-mini on
+**2027-01-14**, so the original choice (gpt-4o, below) had to move. Re-run on the same batteries,
+all through `eval/floyd_eval.py` (which now imports `MODEL`/`TEMPERATURE` from `characters/floyd.py`
+rather than keeping its own copy):
+
+| model (temp) | board-grant fail | north-cmd fail | mention false-pos | notes |
+|---|---|---|---|---|
+| gpt-4o (0.8) | 0/13 | 0/6 | **2/29** (8 runs: "pick up that shiny thing", "look at the shiny board") | the model being retired |
+| **gpt-5.4 (0.8)** | 0/13 | 0/6 | **0/29** over 384 calls | median 1.46s / p90 1.88s vs 0.94s / 1.25s |
+| gpt-5.4 (1.2) | 0/13 | 0/6 | 0/29 over 384 calls | see "Variety" |
+| gpt-5.4-mini | 1/13 | 0/6 | **2/29** | fires the door sequence on "should we go north?" 2/3 |
+| gpt-5.6-terra | 0/13 | 0/6 | **1/29** | same failure |
+| gpt-5.5, gpt-5.6-luna, gpt-5.6-sol | 0/13 | 0/6 | 0/29 (3 runs) | 1.6s-3.3s median; reject any temperature other than 1 |
+
+The earlier gpt-5.4 failure (`go n` -> `dir="n"`, dropped by the C# `== "north"` check) no longer
+occurs: the prompt now forces full compass words. Voice on the 58-input prod corpus stays
+on-model, with no "I'll go / I'll try" phrasing at 0.8.
+
+**`rewrite_second_person.py` moved to gpt-5.4 too.** It is a separate role (decides whether a line is
+speech and strips the framing) with its own harness, `eval/rewrite_eval.py` (35 cases x 5 runs):
+gpt-5.4 = 0 misses, identical to gpt-4o; gpt-5.4-mini left the character's name in ("say hello to
+floyd" -> "hello to floyd", 3/5). Latency 0.84s vs 0.60s.
+
+### Variety (known regression, accepted)
+`eval/floyd_eval.py repetition` is the one battery gpt-5.4 does worse on. Same prompt asked 8 times:
+
+| | mean distinct replies (of 8) | prompts flagged repetitive | most common declined alternative |
+|---|---|---|---|
+| gpt-4o (0.8) | 7.5 | 1 | 20-26% |
+| gpt-5.4 (0.8) | ~6.0 | 7-10 of 22 | 34-43% ("story") |
+| gpt-5.4 (1.0) | 6.2-6.4 | 6-9 | 39-40% |
+| gpt-5.4 (1.2) | 6.7-6.9 | 3-5 | 29-33% |
+
+Higher temperature recovers about half the gap and did not break the game-state battery, but voice
+drift at 1.2 is unmeasured and one corpus reply read "Floyd will try to get the board" (a sanctioned
+PickUp, but the kind of phrasing the hard rules police).
+
+**Decision (Michael, 2026-10-14): accept the regression and keep `TEMPERATURE` at 0.8.** Players have
+little reason to ask Floyd the same question repeatedly, and the load-bearing batteries (game state,
+hard rules) are clean. The pattern to expect: the same opener/frame with small edits (e.g. "Floyd gives
+a quick nod and says, 'Okay. Floyd will stay right here with you.'" in 6 of 8 replies to "wait here").
+Revisit only if players report Floyd feeling canned; the levers are `TEMPERATURE` (~1.2 recovers about
+half the gap) and prompt-level theme seeds in place of verbatim examples.
+
+### Original choice (2026-09-07, gpt-4o)
+**gpt-4o**, deliberately. Head-to-head on the same batteries:
 
 | model | north-cmd fail | board-cmd fail | mention false-pos | dance/hello/joke distinct | avg / p90 latency |
 |---|---|---|---|---|---|
@@ -69,8 +114,8 @@ hostility, hint-seeking, nonsense, warmth) passed with no leaks and no object gi
 | gpt-5.4 | **1/6** (`go n` → `dir="n"`, dropped by the C# `== "north"` check) | 0/6 | 0/8 | 5/8 · 5/8 · 8/8 | 1.09s / 1.26s |
 
 The newer models write slightly richer prose but each introduced a game-state failure and both
-are slower; for a companion whose two intents are load-bearing, correctness wins. Switching later
-is a one-line change (`MODEL` in `characters/floyd.py`) plus a re-run of the batteries.
+are slower; for a companion whose two intents are load-bearing, correctness wins. Switching is a
+one-line change (`MODEL` in `characters/floyd.py`) plus a re-run of the batteries.
 
 ## Hard rules baked into the prompt (do not loosen)
 - **Floyd never goes anywhere on a player command, and never says he will try** (Michael,

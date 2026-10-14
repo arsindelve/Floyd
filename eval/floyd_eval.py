@@ -38,7 +38,9 @@ def get_client():
     return _client
 
 
-MODEL, TEMP = "gpt-4o", 0.8  # keep in sync with characters/floyd.py
+# Imported, never copied: an eval that hardcodes its own model can silently test something other than
+# what production runs. Importing also means the harness follows MODEL when it is deliberately changed.
+from characters.floyd import MODEL, TEMPERATURE as TEMP  # noqa: E402
 
 # ShinyFromitzBoard._outPanelNouns in the ZorkAI repo -- the set live when the PickUp grant fires.
 # (Planetfall/Item/Lawanda/PlanetaryDefense/ShinyFromitzBoard.cs). Keep in sync.

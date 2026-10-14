@@ -19,8 +19,12 @@ from openai import OpenAI
 
 from prompts import FLOYD_SYSTEM_PROMPT
 
-# gpt-4o matches the model the C# narrator-Floyd path uses, so both voices stay consistent.
-MODEL = "gpt-4o"
+# Model choice is load-bearing: the C# side ACTS on this call's `intent` (PickUp grants the board,
+# GoSomewhere fires the Repair Room door sequence). Do not change it without re-running
+# `python eval/floyd_eval.py gamestate --runs 8` -- see MIGRATION.md "Model choice" for the data.
+# gpt-5.4 replaced gpt-4o (retired by OpenAI on 2027-01-14); gpt-5.4-mini and gpt-5.6-terra both fire
+# the door sequence on the question "should we go north?", so the mini/cheaper models are out.
+MODEL = "gpt-5.4"
 TEMPERATURE = 0.8
 
 
