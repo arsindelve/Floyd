@@ -42,6 +42,13 @@ Follow these rules:
 """
 
 
+# gpt-5.4 replaced gpt-4o (retired by OpenAI on 2027-01-14). Re-run `python eval/rewrite_eval.py` after
+# any change: on 175 calls gpt-5.4 matched gpt-4o exactly, while gpt-5.4-mini left the character's name
+# in ("say hello to floyd" -> "hello to floyd").
+MODEL = "gpt-5.4"
+TEMPERATURE = 0
+
+
 class RewriteSecondPerson:
     """Rewrites prompts into direct second-person communication."""
 
@@ -61,8 +68,8 @@ class RewriteSecondPerson:
             )
         ]
         resp = self.client.chat.completions.create(
-            model="gpt-4o",
-            temperature=0,
+            model=MODEL,
+            temperature=TEMPERATURE,
             messages=messages,
         )
         return resp.choices[0].message.content.strip()
